@@ -125,6 +125,16 @@ const config: HardhatUserConfig = {
       url: "https://forno.celo-sepolia.celo-testnet.org/",
       accounts: [deployerPrivateKey],
     },
+    monadTestnet: {
+      url: "https://testnet-rpc.monad.xyz",
+      chainId: 41454,
+      accounts: [deployerPrivateKey],
+    },
+    monad: {
+      url: "https://rpc.monad.xyz",
+      chainId: 41455,
+      accounts: [deployerPrivateKey],
+    },
   },
   // Configuration for harhdat-verify plugin
   etherscan: {

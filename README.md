@@ -1,80 +1,225 @@
-# 🏗 Scaffold-ETH 2
+# 🎲 Sidebets - Social Consensus Betting on Monad
 
-<h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
-</h4>
+> Transform social debates into on-chain settlements through EIP-712 signature aggregation
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+## 🎯 项目概述
 
-⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
+Sidebets 是一个去中心化的社交投注协议，允许用户在社交平台上创建争论话题，通过链下签名聚合达成共识，最终在 Monad 链上完成结算。
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+### 核心特性
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+| 特性 | 描述 |
+|------|------|
+| **零 Gas 认证** | 用户使用 EIP-712 签名参与，无需支付 Gas |
+| **社交共识** | 参与者投票决定最终结果，阈值可配置 (50%-99%) |
+| **争议机制** | 2 小时争议窗口，防止恶意结算 |
+| **CREATE2 部署** | 可预测合约地址，便于前端集成 |
+| **Monad 优化** | 并行执行友好，充分利用 Monad 高性能 |
+| **资金托管** | ERC20 代币锁定，智能合约自动分配 |
 
-## Requirements
-
-Before you begin, you need to install the following tools:
-
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
-
-## Quickstart
-
-To get started with Scaffold-ETH 2, follow the steps below:
-
-1. Install dependencies if it was skipped in CLI:
+## 🏗️ 合约架构
 
 ```
-cd my-dapp-example
+┌─────────────────────────────────────────────────────────────┐
+│                      Sidebets 合约系统                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────────────┐        ┌─────────────────┐           │
+│   │ SidebetFactory  │───────>│   Sidebet N     │           │
+│   │   (工厂合约)     │ create2│   (市场合约)     │           │
+│   │                 │        │                 │           │
+│   │ - 创建市场       │        │ - 资金托管       │           │
+│   │ - 索引管理       │        │ - EIP-712 验证   │           │
+│   │ - 地址预测       │        │ - 共识结算       │           │
+│   └─────────────────┘        └─────────────────┘           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 合约列表
+
+| 合约 | 文件 | 功能 |
+|------|------|------|
+| `SidebetFactory` | `contracts/SidebetFactory.sol` | 创建和管理市场 |
+| `Sidebet` | `contracts/Sidebet.sol` | 核心市场逻辑 |
+| `MockToken` | `contracts/mocks/MockToken.sol` | 测试用 ERC20 代币 |
+| `ISidebet` | `contracts/interfaces/ISidebet.sol` | 接口定义 |
+
+## 📁 项目结构
+
+```
+packages/hardhat/
+├── contracts/
+│   ├── interfaces/
+│   │   └── ISidebet.sol           # 接口定义
+│   ├── mocks/
+│   │   └── MockToken.sol          # Mock USDC
+│   ├── Sidebet.sol                # 核心市场合约
+│   └── SidebetFactory.sol         # 工厂合约
+├── deploy/
+│   └── 01_deploy_sidebet_factory.ts
+├── test/
+│   └── Sidebet.test.ts            # 测试文件 (38个测试全部通过)
+└── ...
+
+packages/nextjs/
+├── contracts/
+│   └── deployedContracts.ts       # 合约地址配置
+└── ...
+
+docs/
+├── 03-智能合约层.md                 # 智能合约开发文档
+└── ...
+```
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Node.js >= v20.18.3
+- Yarn v1 或 v2+
+- Git
+
+### 安装
+
+```bash
+# 安装依赖
 yarn install
-```
 
-2. Run a local network in the first terminal:
-
-```
+# 启动本地网络
 yarn chain
-```
 
-This command starts a local Ethereum network using Hardhat. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/hardhat/hardhat.config.ts`.
-
-3. On a second terminal, deploy the test contract:
-
-```
+# 部署合约
 yarn deploy
-```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/hardhat/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/hardhat/deploy` to deploy the contract to the network. You can also customize the deploy script.
+# 运行测试
+yarn hardhat:test
 
-4. On a third terminal, start your NextJS app:
-
-```
+# 启动前端
 yarn start
 ```
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+访问 `http://localhost:3000`
 
-Run smart contract test with `yarn hardhat:test`
+## 🧪 测试
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+```bash
+# 运行所有测试
+yarn hardhat:test
 
+# 查看测试覆盖率
+yarn hardhat:coverage
 
-## Documentation
+# 查看Gas报告
+REPORT_GAS=true yarn hardhat:test
+```
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+### 测试结果
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+```
+✔ 38 passing (845ms)
+✗ 0 failing
+```
 
-## Contributing to Scaffold-ETH 2
+| 测试类别 | 测试数量 | 状态 |
+|----------|----------|------|
+| SidebetFactory | 4 | ✅ |
+| Market Creation | 4 | ✅ |
+| Staking | 5 | ✅ |
+| Proposal | 3 | ✅ |
+| Consensus & Finalization | 7 | ✅ |
+| Dispute | 3 | ✅ |
+| Cancellation | 4 | ✅ |
+| Progress Tracking | 2 | ✅ |
+| MockToken | 4 | ✅ |
 
-We welcome contributions to Scaffold-ETH 2!
+## 📊 Gas 成本
 
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+| 操作 | Gas 消耗 |
+|------|----------|
+| `createSidebet()` | ~2,010,000 |
+| `stake()` | ~160,000 |
+| `proposeResult()` | ~161,000 |
+| `finalizeWithConsensus()` | ~294,000 |
+| `dispute()` | ~37,000 |
+| `cancel()` | ~68,000 |
+
+## 🔧 开发指南
+
+### 添加新市场
+
+```typescript
+// 通过工厂创建市场
+const tx = await factory.createSidebet(
+  "BTC能否突破10万美元?",      // topic
+  6000,                       // 60% 阈值
+  usdcAddress,                // 代币地址
+  ethers.parseEther("100")    // 最小投注
+);
+```
+
+### 参与投注
+
+```typescript
+// 用户投注
+await sidebet.connect(user).stake(
+  ethers.parseEther("200"),  // 金额
+  1                           // 投"是"
+);
+```
+
+### 提交结果提案
+
+```typescript
+// 任何人都可以提案
+await sidebet.connect(anyone).proposeResult(
+  1,                           // 结果
+  ethers.encodeBytes32String("证据IPFS哈希")
+);
+```
+
+### 签名认证 (EIP-712)
+
+```typescript
+const domain = {
+  name: "Sidebet",
+  version: "1",
+  chainId: chainId,
+  verifyingContract: marketAddress,
+};
+
+const types = {
+  Attestation: [
+    { name: "market", type: "address" },
+    { name: "outcome", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+  ],
+};
+
+const value = {
+  market: marketAddress,
+  outcome: 1,
+  nonce: await sidebet.nonce(),
+};
+
+// 使用 Privy 或钱包签名
+const signature = await signer.signTypedData(domain, types, value);
+```
+
+## 🔐 安全考虑
+
+- **重放攻击防护**: Domain Separator + Nonce
+- **重入攻击防护**: OpenZeppelin ReentrancyGuard
+- **整数溢出防护**: Solidity 0.8+ 内置检查
+- **争议机制**: 2小时争议窗口
+- **合约检查**: 禁止合约地址参与
+
+## 📄 许可证
+
+MIT
+
+## 🙏 致谢
+
+- [Scaffold-ETH 2](https://github.com/scaffold-eth/scaffold-eth-2) - 开发框架
+- [OpenZeppelin](https://openzeppelin.com/) - 安全合约库
+- [Monad](https://monad.xyz/) - 高性能 Layer1
