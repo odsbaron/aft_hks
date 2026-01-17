@@ -11,13 +11,12 @@
 
 import {
   usePrivy,
-  useEmbeddedWallets,
+  useWallets,
   useSendTransaction,
   useSignMessage,
   useSignTypedData,
   useLogout as usePrivyLogout,
   useLogin as usePrivyLogin,
-  useLinkWallet,
 } from "@privy-io/react-auth";
 import { useCallback, useMemo } from "react";
 import { Outcome } from "~~/types/sidebet";
@@ -55,13 +54,12 @@ interface WalletInfo {
 
 export function usePrivyAuth() {
   const privy = usePrivy();
-  const { wallets } = useEmbeddedWallets();
+  const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
   const { signMessage } = useSignMessage();
   const signTypedDataPrivy = useSignTypedData();
   const { logout: privyLogout } = usePrivyLogout();
   const { login: privyLogin } = usePrivyLogin();
-  const { linkWallet } = useLinkWallet();
 
   // Get the main embedded wallet
   const mainWallet: WalletInfo | undefined = useMemo(() => {
@@ -75,25 +73,27 @@ export function usePrivyAuth() {
   // Parse user info
   const userInfo: UserInfo | undefined = useMemo(() => {
     if (!privy.user) return undefined;
+    const user = privy.user as any;
     return {
-      email: privy.user.email,
-      googleAccount: privy.user.google,
-      twitterAccount: privy.user.twitter,
-      discordAccount: privy.user.discord,
-      telegramAccount: privy.user.telegram,
-      farcasterAccount: privy.user.farcaster,
+      email: user.email,
+      googleAccount: user.google,
+      twitterAccount: user.twitter,
+      discordAccount: user.discord,
+      telegramAccount: user.telegram,
+      farcasterAccount: user.farcaster,
     };
   }, [privy.user]);
 
   // Check if user logged in with a specific provider
   const loginMethod = useMemo(() => {
     if (!privy.user) return undefined;
-    if (privy.user.email) return "email";
-    if (privy.user.google) return "google";
-    if (privy.user.twitter) return "twitter";
-    if (privy.user.discord) return "discord";
-    if (privy.user.telegram) return "telegram";
-    if (privy.user.farcaster) return "farcaster";
+    const user = privy.user as any;
+    if (user.email) return "email";
+    if (user.google) return "google";
+    if (user.twitter) return "twitter";
+    if (user.discord) return "discord";
+    if (user.telegram) return "telegram";
+    if (user.farcaster) return "farcaster";
     return "wallet";
   }, [privy.user]);
 
@@ -137,7 +137,7 @@ export function usePrivyAuth() {
     async (message: string) => {
       if (!signMessage) throw new Error("Sign message not available");
       try {
-        const signature = await signMessage(message);
+        const signature = await signMessage({ message });
         return signature;
       } catch (error) {
         console.error("Sign message failed:", error);
@@ -161,8 +161,9 @@ export function usePrivyAuth() {
     ) => {
       if (!signTypedDataPrivy) throw new Error("Sign typed data not available");
       try {
-        // Privy uses a different format, convert it
-        const signature = await signTypedDataPrivy({
+        // Privy's signTypedData is an object with a signTypedData method
+        const result = signTypedDataPrivy as any;
+        const signature = await result.signTypedData({
           type: "eip712",
           domain,
           types,
@@ -177,27 +178,13 @@ export function usePrivyAuth() {
     [signTypedDataPrivy]
   );
 
-  // Link external wallet (MetaMask, etc.)
-  const handleLinkWallet = useCallback(
-    async (walletType: "meta_mask" | "coinbase_wallet" | "wallet_connect") => {
-      if (!linkWallet) throw new Error("Link wallet not available");
-      try {
-        await linkWallet({ type: walletType });
-      } catch (error) {
-        console.error("Link wallet failed:", error);
-        throw error;
-      }
-    },
-    [linkWallet]
-  );
-
   // Get display name for user
   const displayName = useMemo(() => {
     if (!userInfo) return undefined;
     if (userInfo.googleAccount?.name) return userInfo.googleAccount.name;
     if (userInfo.twitterAccount?.name) return userInfo.twitterAccount.name;
     if (userInfo.telegramAccount?.username) return `@${userInfo.telegramAccount.username}`;
-    if (userInfo.farcasterAccount?.username) => userInfo.farcasterAccount.username;
+    if (userInfo.farcasterAccount?.username) return userInfo.farcasterAccount.username;
     if (userInfo.email) return userInfo.email.split("@")[0];
     return address?.slice(0, 6);
   }, [userInfo, address]);
@@ -242,7 +229,6 @@ export function usePrivyAuth() {
     sendTransaction: handleSendTransaction,
     signMessage: handleSignMessage,
     signTypedData: handleSignTypedData,
-    linkWallet: handleLinkWallet,
 
     // Flags
     isConnected: privy.authenticated && !!address,

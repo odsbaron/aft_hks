@@ -2,13 +2,138 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { MarketStatus, Outcome, Participant, MarketInfo } from "~~/types/sidebet";
 import { ProgressBar, StakeModal, ProposeModal, AttestationModal, AttestationList } from "~~/components/sidebet";
 import { Address } from "@scaffold-ui/components";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
+
+// Minimal ABI for Sidebet contract
+const SIDEBET_ABI = [
+  {
+    inputs: [],
+    name: "getMarketInfo",
+    outputs: [
+      {
+        components: [
+          { internalType: "string", name: "topic", type: "string" },
+          { internalType: "uint256", name: "thresholdPercent", type: "uint256" },
+          { internalType: "address", name: "token", type: "address" },
+          { internalType: "uint256", name: "totalParticipants", type: "uint256" },
+          { internalType: "uint256", name: "totalStaked", type: "uint256" },
+          { internalType: "uint256", name: "createdAt", type: "uint256" },
+          { internalType: "uint256", name: "proposedAt", type: "uint256" },
+          { internalType: "uint256", name: "resolvedAt", type: "uint256" },
+        ],
+        internalType: "struct ISidebet.MarketInfo",
+        name: "info",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getStatus",
+    outputs: [{ internalType: "enum ISidebet.Status", name: "status", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getProposal",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint256", name: "outcome", type: "uint256" },
+          { internalType: "address", name: "proposer", type: "address" },
+          { internalType: "uint256", name: "attestationCount", type: "uint256" },
+          { internalType: "uint256", name: "disputeUntil", type: "uint256" },
+          { internalType: "string", name: "ipfsHash", type: "string" },
+        ],
+        internalType: "struct ISidebet.Proposal",
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getParticipants",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "wallet", type: "address" },
+          { internalType: "uint256", name: "stake", type: "uint256" },
+          { internalType: "uint256", name: "outcome", type: "uint256" },
+          { internalType: "bool", name: "hasAttested", type: "bool" },
+        ],
+        internalType: "struct ISidebet.Participant[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getProgress",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "nonce",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "getParticipant",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "wallet", type: "address" },
+          { internalType: "uint256", name: "stake", type: "uint256" },
+          { internalType: "uint256", name: "outcome", type: "uint256" },
+          { internalType: "bool", name: "hasAttested", type: "bool" },
+        ],
+        internalType: "struct ISidebet.Participant",
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "outcome", type: "uint256" },
+    ],
+    name: "stake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "outcome", type: "uint256" },
+      { internalType: "string", name: "ipfsHash", type: "string" },
+    ],
+    name: "proposeResult",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 export default function MarketDetailPage() {
   const params = useParams();
@@ -21,68 +146,67 @@ export default function MarketDetailPage() {
   const [attestModalOpen, setAttestModalOpen] = useState(false);
   const [showAttestationList, setShowAttestationList] = useState(false);
 
-  const { data: marketInfo } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  // Read market data using raw wagmi hooks
+  const { data: marketInfo } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "getMarketInfo",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: status } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  const { data: status } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "getStatus",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: participants } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  const { data: participants } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "getParticipants",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: proposal } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  const { data: proposal } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "getProposal",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: progress } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  const { data: progress } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "getProgress",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: nonce } = useScaffoldReadContract({
-    contractName: "Sidebet",
+  const { data: nonce } = useReadContract({
+    address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
     functionName: "nonce",
-    address: marketAddress as `0x${string}`,
   });
 
-  const { data: userStake } = useScaffoldReadContract({
-    contractName: "Sidebet",
-    functionName: "getParticipant",
+  // Write contracts
+  const { writeContract: stake, isPending: isStaking } = useWriteContract();
+  const { writeContract: propose, isPending: isProposing } = useWriteContract();
+
+  const { data: userStake } = useReadContract({
     address: marketAddress as `0x${string}`,
+    abi: SIDEBET_ABI,
+    functionName: "getParticipant",
     args: address ? [address] : undefined,
+    query: { enabled: !!address },
   });
 
   const { data: tokenBalance } = useScaffoldReadContract({
     contractName: "MockToken",
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-  });
-
-  const { writeContractAsync: stake, isPending: isStaking } = useScaffoldWriteContract({
-    contractName: "Sidebet",
-    address: marketAddress as `0x${string}`,
-  });
-
-  const { writeContractAsync: propose, isPending: isProposing } = useScaffoldWriteContract({
-    contractName: "Sidebet",
-    address: marketAddress as `0x${string}`,
-  });
+  } as any);
 
   const handleStake = async (amount: string, outcome: Outcome) => {
+    if (!stake) throw new Error("Stake not available");
     try {
       await stake({
+        address: marketAddress as `0x${string}`,
+        abi: SIDEBET_ABI,
         functionName: "stake",
         args: [BigInt(Math.floor(parseFloat(amount) * 1e18)), BigInt(outcome)],
       });
@@ -94,10 +218,13 @@ export default function MarketDetailPage() {
   };
 
   const handlePropose = async (outcome: Outcome, ipfsHash: string) => {
+    if (!propose) throw new Error("Propose not available");
     try {
       await propose({
+        address: marketAddress as `0x${string}`,
+        abi: SIDEBET_ABI,
         functionName: "proposeResult",
-        args: [BigInt(outcome), ipfsHash as `0x${string}`],
+        args: [BigInt(outcome), ipfsHash],
       });
       notification.success("Proposal submitted successfully!");
     } catch (error: any) {
@@ -112,21 +239,23 @@ export default function MarketDetailPage() {
   };
 
   const formatAmount = (amount: bigint) => (Number(amount) / 1e18).toFixed(4);
-  const info = marketInfo as MarketInfo;
+  const info = marketInfo as MarketInfo | undefined;
   const threshold = info ? Number(info.thresholdPercent) / 100 : 60;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const currentNonce = nonce ? Number(nonce) : 0;
+  const proposalData = proposal as any;
 
   // Check if user can attest (staked on the proposed outcome)
+  const userStakeData = userStake as Participant | undefined;
   const userCanAttest =
     status === MarketStatus.Proposed &&
-    userStake &&
-    (userStake as Participant).stake > 0n &&
-    proposal &&
-    (userStake as Participant).outcome === proposal.outcome &&
-    !(userStake as Participant).hasAttested;
+    userStakeData &&
+    userStakeData.stake > 0n &&
+    proposalData &&
+    userStakeData.outcome === proposalData.outcome &&
+    !userStakeData.hasAttested;
 
-  if (!marketInfo) {
+  if (!info) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Market not found</h1>
@@ -189,20 +318,20 @@ export default function MarketDetailPage() {
                     </button>
                   </div>
                   <ProgressBar progress={progressPercent} threshold={threshold} showValues={true} size="lg" />
-                  {proposal && (
+                  {proposalData && (
                     <div className="mt-4 p-4 bg-base-200 rounded-lg">
                       <div className="text-sm">
                         <span className="font-semibold">Proposed Outcome: </span>
-                        <span className={proposal.outcome === Outcome.Yes ? "text-success" : "text-error"}>
-                          {proposal.outcome === Outcome.Yes ? "YES" : "NO"}
+                        <span className={proposalData.outcome === BigInt(Outcome.Yes) ? "text-success" : "text-error"}>
+                          {proposalData.outcome === BigInt(Outcome.Yes) ? "YES" : "NO"}
                         </span>
                       </div>
                       <div className="text-sm mt-1">
                         <span className="font-semibold">Proposed by: </span>
-                        <Address address={proposal.proposer} size="sm" />
+                        <Address address={proposalData.proposer} size="sm" />
                       </div>
                       <div className="text-xs text-base-content/60 mt-1">
-                        Dispute ends: {new Date(Number(proposal.disputeUntil) * 1000).toLocaleString()}
+                        Dispute ends: {new Date(Number(proposalData.disputeUntil) * 1000).toLocaleString()}
                       </div>
                     </div>
                   )}
@@ -213,7 +342,7 @@ export default function MarketDetailPage() {
               {showAttestationList && participants && (
                 <AttestationList
                   participants={participants as Participant[]}
-                  proposedOutcome={proposal.outcome}
+                  proposedOutcome={Number(proposalData?.outcome || 0) as Outcome}
                   thresholdPercent={threshold}
                   totalParticipants={Number(info.totalParticipants)}
                 />
@@ -244,8 +373,8 @@ export default function MarketDetailPage() {
                         >
                           <td><Address address={p.wallet} size="sm" /></td>
                           <td>
-                            <span className={`badge ${p.outcome === Outcome.Yes ? "badge-success" : "badge-error"} badge-sm`}>
-                              {p.outcome === Outcome.Yes ? "YES" : "NO"}
+                            <span className={`badge ${p.outcome === BigInt(Outcome.Yes) ? "badge-success" : "badge-error"} badge-sm`}>
+                              {p.outcome === BigInt(Outcome.Yes) ? "YES" : "NO"}
                             </span>
                           </td>
                           <td className="text-right font-mono">{formatAmount(p.stake)}</td>
@@ -273,26 +402,26 @@ export default function MarketDetailPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* User Position */}
-          {userStake && (userStake as Participant).stake > 0n && (
+          {userStakeData && userStakeData.stake > 0n && (
             <div className="card bg-base-100 border border-base-300">
               <div className="card-body">
                 <h3 className="card-title text-base">Your Position</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-base-content/60">Stake</span>
-                    <span className="font-semibold">{formatAmount((userStake as Participant).stake)} tokens</span>
+                    <span className="font-semibold">{formatAmount(userStakeData.stake)} tokens</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-base-content/60">Outcome</span>
-                    <span className={`font-semibold ${(userStake as Participant).outcome === Outcome.Yes ? "text-success" : "text-error"}`}>
-                      {(userStake as Participant).outcome === Outcome.Yes ? "YES" : "NO"}
+                    <span className={`font-semibold ${userStakeData.outcome === BigInt(Outcome.Yes) ? "text-success" : "text-error"}`}>
+                      {userStakeData.outcome === BigInt(Outcome.Yes) ? "YES" : "NO"}
                     </span>
                   </div>
                   {status === MarketStatus.Proposed && (
                     <div className="flex justify-between">
                       <span className="text-base-content/60">Attested</span>
-                      <span className={(userStake as Participant).hasAttested ? "text-success" : "text-warning"}>
-                        {(userStake as Participant).hasAttested ? "✓ Yes" : "✗ No"}
+                      <span className={userStakeData.hasAttested ? "text-success" : "text-warning"}>
+                        {userStakeData.hasAttested ? "✓ Yes" : "✗ No"}
                       </span>
                     </div>
                   )}
@@ -313,7 +442,7 @@ export default function MarketDetailPage() {
                     onClick={() => setStakeModalOpen(true)}
                     disabled={!address}
                   >
-                    {(userStake as Participant)?.stake > 0n ? "Increase Stake" : "Place Stake"}
+                    {userStakeData && userStakeData.stake > 0n ? "Increase Stake" : "Place Stake"}
                   </button>
                   <button
                     className="btn btn-secondary w-full"
@@ -335,14 +464,14 @@ export default function MarketDetailPage() {
                 </button>
               )}
 
-              {status === MarketStatus.Proposed && !userCanAttest && userStake && (userStake as Participant).stake > 0n && (
+              {status === MarketStatus.Proposed && !userCanAttest && userStakeData && userStakeData.stake > 0n && (
                 <div className="alert alert-info text-sm py-2">
-                  You voted for {(userStake as Participant).outcome === Outcome.Yes ? "YES" : "NO"},
-                  but {proposal?.outcome === Outcome.Yes ? "YES" : "NO"} was proposed.
+                  You voted for {userStakeData.outcome === BigInt(Outcome.Yes) ? "YES" : "NO"},
+                  but {proposalData?.outcome === BigInt(Outcome.Yes) ? "YES" : "NO"} was proposed.
                 </div>
               )}
 
-              {status === MarketStatus.Proposed && (!userStake || (userStake as Participant).stake === 0n) && (
+              {status === MarketStatus.Proposed && (!userStakeData || userStakeData.stake === 0n) && (
                 <div className="alert alert-warning text-sm py-2">
                   You must stake to attest on the result.
                 </div>
@@ -359,7 +488,7 @@ export default function MarketDetailPage() {
             <div className="card-body py-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-base-content/60">Your Balance</span>
-                <span className="font-semibold">{tokenBalance ? formatAmount(tokenBalance) : "0.00"} tokens</span>
+                <span className="font-semibold">{tokenBalance ? formatAmount(tokenBalance as bigint) : "0.00"} tokens</span>
               </div>
             </div>
           </div>
@@ -371,7 +500,7 @@ export default function MarketDetailPage() {
         isOpen={stakeModalOpen}
         onClose={() => setStakeModalOpen(false)}
         onStake={handleStake}
-        userBalance={tokenBalance || 0n}
+        userBalance={(tokenBalance as bigint | undefined) || 0n}
         isStaking={isStaking}
       />
       <ProposeModal
@@ -385,7 +514,7 @@ export default function MarketDetailPage() {
         onClose={() => setAttestModalOpen(false)}
         marketAddress={marketAddress}
         marketTopic={info.topic}
-        proposedOutcome={proposal?.outcome || Outcome.Yes}
+        proposedOutcome={Number(proposalData?.outcome || 0) as Outcome}
         nonce={currentNonce}
         onAttested={handleAttested}
       />

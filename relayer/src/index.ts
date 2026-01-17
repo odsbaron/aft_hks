@@ -3,6 +3,10 @@
  * Main entry point for the relayer backend
  */
 
+// Load environment variables FIRST, before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

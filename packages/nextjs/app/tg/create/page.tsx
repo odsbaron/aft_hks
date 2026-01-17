@@ -8,46 +8,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSidebetFactory } from "~~/hooks/useSidebetFactory";
-import { usePrivy } from "~~/hooks/usePrivy";
-
-interface TelegramWebApp {
-  ready: () => void;
-  expand: () => void;
-  BackButton: {
-    show: () => void;
-    hide: () => void;
-    onClick: (callback: () => void) => void;
-  };
-  HapticFeedback: {
-    impactOccurred: (style: "light" | "medium" | "heavy") => void;
-    notificationOccurred: (type: "error" | "success" | "warning") => void;
-  };
-  MainButton: {
-    text: string;
-    show: () => void;
-    hide: () => void;
-    enable: () => void;
-    disable: () => void;
-    onClick: (callback: () => void) => void;
-  };
-  popup: (params: {
-    title?: string;
-    message: string;
-    buttons: Array<{ type: string; text: string }>;
-  }) => Promise<{ id: string } | null>;
-}
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: TelegramWebApp;
-    };
-  }
-}
+import { usePrivyAuth } from "~~/hooks/usePrivy";
+import type { TelegramWebApp } from "~~/types/telegram";
 
 export default function CreateMarketPage() {
   const router = useRouter();
-  const { authenticated, login } = usePrivy();
+  const { authenticated, login } = usePrivyAuth();
   const { createMarket } = useSidebetFactory();
 
   const [tg, setTg] = useState<TelegramWebApp | null>(null);
@@ -60,18 +26,20 @@ export default function CreateMarketPage() {
   // Initialize Telegram WebApp
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
+      const webApp = window.Telegram.WebApp as unknown as TelegramWebApp;
       setTg(webApp);
       webApp.ready();
       webApp.expand();
 
       // Setup back button
       webApp.BackButton.show();
-      webApp.BackButton.onClick(() => {
+      const handleBack = () => {
         router.back();
-      });
+      };
+      webApp.BackButton.onClick(handleBack);
 
       return () => {
+        webApp.BackButton.offClick?.(handleBack);
         webApp.BackButton.hide();
       };
     }
@@ -103,8 +71,8 @@ export default function CreateMarketPage() {
     }
 
     return () => {
-      tg.MainButton.off("click", handleConnect);
-      tg.MainButton.off("click", handleCreate);
+      tg.MainButton.offClick?.(handleConnect);
+      tg.MainButton.offClick?.(handleCreate);
     };
   }, [tg, authenticated, topic, threshold, minStake, tokenAddress]);
 
@@ -136,22 +104,24 @@ export default function CreateMarketPage() {
         topic.trim(),
         parseInt(threshold),
         tokenAddress.trim(),
-        BigInt(parseFloat(minStake) * 1e6)
+        (parseFloat(minStake) * 1e6).toString()
       );
 
       if (tg) {
         tg.HapticFeedback.notificationOccurred("success");
 
         // Show success popup
-        await tg.popup({
-          title: "Market Created!",
-          message: `Your market "${topic}" has been created successfully.`,
-          buttons: [{ type: "ok", text: "View Market" }],
-        });
+        if (tg.popup) {
+          await tg.popup({
+            title: "Market Created!",
+            message: `Your market "${topic}" has been created successfully.\nTransaction: ${result}`,
+            buttons: [{ type: "ok", text: "OK" }],
+          });
+        }
       }
 
-      // Navigate to the new market
-      router.push(`/tg/market/${result.address}`);
+      // Navigate to home
+      router.push("/tg");
     } catch (error) {
       console.error("Error creating market:", error);
       if (tg) {

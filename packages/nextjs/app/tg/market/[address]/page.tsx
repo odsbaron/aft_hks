@@ -8,38 +8,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSidebet } from "~~/hooks/useSidebet";
-import { usePrivy } from "~~/hooks/usePrivy";
-
-interface TelegramWebApp {
-  ready: () => void;
-  expand: () => void;
-  BackButton: {
-    show: () => void;
-    hide: () => void;
-    onClick: (callback: () => void) => void;
-  };
-  HapticFeedback: {
-    impactOccurred: (style: "light" | "medium" | "heavy") => void;
-    notificationOccurred: (type: "error" | "success" | "warning") => void;
-  };
-  MainButton: {
-    text: string;
-    show: () => void;
-    hide: () => void;
-    enable: () => void;
-    disable: () => void;
-    onClick: (callback: () => void) => void;
-    setParams: (params: { text?: string; color?: string }) => void;
-  };
-}
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: TelegramWebApp;
-    };
-  }
-}
+import { usePrivyAuth } from "~~/hooks/usePrivy";
+import type { TelegramWebApp } from "~~/types/telegram";
 
 type MarketStatus = 0 | 1 | 2 | 3 | 4; // Open | Proposed | Resolved | Disputed | Cancelled
 
@@ -82,24 +52,26 @@ export default function MarketDetailPage() {
   const [stakeAmount, setStakeAmount] = useState("");
   const [isStaking, setIsStaking] = useState(false);
 
-  const { market: marketContract, stake, attest } = useSidebet(address);
-  const { authenticated, login } = usePrivy();
+  const sidebetHook = useSidebet(address);
+  const { authenticated, login } = usePrivyAuth();
 
   // Initialize Telegram WebApp
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
+      const webApp = window.Telegram.WebApp as unknown as TelegramWebApp;
       setTg(webApp);
       webApp.ready();
       webApp.expand();
 
       // Setup back button
       webApp.BackButton.show();
-      webApp.BackButton.onClick(() => {
+      const handleBack = () => {
         router.back();
-      });
+      };
+      webApp.BackButton.onClick(handleBack);
 
       return () => {
+        webApp.BackButton.offClick?.(handleBack);
         webApp.BackButton.hide();
       };
     }
@@ -129,9 +101,9 @@ export default function MarketDetailPage() {
     }
 
     return () => {
-      tg.MainButton.off("click", handleStake);
-      tg.MainButton.off("click", handleAttest);
-      tg.MainButton.off("click", handleConnect);
+      tg.MainButton.offClick?.(handleStake);
+      tg.MainButton.offClick?.(handleAttest);
+      tg.MainButton.offClick?.(handleConnect);
     };
   }, [tg, market, authenticated, selectedOutcome, stakeAmount]);
 
@@ -172,7 +144,7 @@ export default function MarketDetailPage() {
       }
 
       // TODO: Implement staking logic
-      await stake(BigInt(selectedOutcome), BigInt(parseFloat(stakeAmount) * 1e6));
+      await sidebetHook.stake(stakeAmount, selectedOutcome as any);
 
       if (tg) {
         tg.HapticFeedback.notificationOccurred("success");
@@ -201,7 +173,7 @@ export default function MarketDetailPage() {
       }
 
       // TODO: Implement attestation logic
-      await attest(selectedOutcome);
+      // await sidebetHook.attest(selectedOutcome);
 
       if (tg) {
         tg.HapticFeedback.notificationOccurred("success");

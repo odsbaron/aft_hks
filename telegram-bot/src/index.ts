@@ -3,8 +3,11 @@
  * Main entry point for the Telegram bot
  */
 
+// Load environment variables FIRST, before any other imports
+import 'dotenv/config';
+
 import { Bot, hydrateFiles } from 'grammy';
-import { autoRetry } from 'grammy-auto-retry';
+// import { autoRetry } from 'grammy-auto-retry'; // Disabled - package not found
 import { config } from './config';
 import { logger } from './utils/logger';
 import { BotContext, userMiddleware, commandTracking, errorLogging } from './middleware';
@@ -13,14 +16,11 @@ import { registerCallbackHandlers } from './handlers/callbacks';
 import { MarketBrowser } from './handlers/marketBrowser';
 import { NotificationService } from './services/notifications';
 
-// Load environment variables
-import 'dotenv/config';
-
 // Create bot instance
 const bot = new Bot<BotContext>(config.BOT_TOKEN);
 
 // Setup auto-retry for rate limits
-bot.api.config.use(autoRetry());
+// bot.api.config.use(autoRetry()); // Disabled - package not found
 
 // Setup file handling (for future features like images)
 bot.api.config.use(hydrateFiles(bot.token));

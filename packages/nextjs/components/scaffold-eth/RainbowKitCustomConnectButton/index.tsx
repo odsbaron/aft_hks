@@ -14,6 +14,7 @@ import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { useAccount } from "wagmi";
 import { usePrivyAuth } from "~~/hooks/usePrivy";
 import { LoginModal } from "~~/components/sidebet";
+import { getBlockExplorerAddressLink } from "~~/utils/scaffold-eth/networks";
 
 /**
  * Custom Wagmi Connect Button (watch balance + custom design)
@@ -102,8 +103,8 @@ export const RainbowKitCustomConnectButton = () => {
                     </div>
                     <AddressInfoDropdown
                       address={address as Address}
-                      displayName={isPrivyUser ? displayName : account.displayName}
-                      ensAvatar={account.ensAvatar}
+                      displayName={isPrivyUser ? displayName || account?.displayName || address : account?.displayName || address}
+                      ensAvatar={account?.ensAvatar}
                       blockExplorerAddressLink={blockExplorerAddressLink}
                       isPrivyUser={isPrivyUser}
                       onLogout={handleLogout}

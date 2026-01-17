@@ -21,7 +21,7 @@ export default function CreateMarketPage() {
     contractName: "MockToken",
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-  });
+  } as any);
 
   const [topic, setTopic] = useState("");
   const [threshold, setThreshold] = useState(60);
@@ -99,7 +99,7 @@ export default function CreateMarketPage() {
           </svg>
           <div>
             <h4 className="font-bold">Your Balance</h4>
-            <p className="text-xs">{tokenBalance ? formatBalance(tokenBalance) : "0.00"} tokens available</p>
+            <p className="text-xs">{tokenBalance ? formatBalance(tokenBalance as bigint) : "0.00"} tokens available</p>
           </div>
         </div>
 

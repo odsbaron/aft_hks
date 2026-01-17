@@ -9,62 +9,7 @@ import { useEffect, useState } from "react";
 import { useSidebetFactory } from "~~/hooks/useSidebetFactory";
 import { MarketCard } from "~~/components/sidebet/MarketCard";
 import { ProgressBar } from "~~/components/sidebet/ProgressBar";
-
-interface TelegramWebApp {
-  ready: () => void;
-  expand: () => void;
-  close: () => void;
-  BackButton: {
-    show: () => void;
-    hide: () => void;
-    onClick: (callback: () => void) => void;
-  };
-  MainButton: {
-    text: string;
-    show: () => void;
-    hide: () => void;
-    enable: () => void;
-    disable: () => void;
-    onClick: (callback: () => void) => void;
-  };
-  HapticFeedback: {
-    impactOccurred: (style: "light" | "medium" | "heavy") => void;
-    notificationOccurred: (type: "error" | "success" | "warning") => void;
-  };
-  initData: string;
-  initDataUnsafe: {
-    query_id?: string;
-    user?: {
-      id: number;
-      first_name: string;
-      last_name?: string;
-      username?: string;
-      language_code?: string;
-    };
-    auth_date?: number;
-    hash?: string;
-  };
-  version: string;
-  platform: string;
-  colorScheme: "light" | "dark";
-  themeParams: {
-    bg_color?: string;
-    text_color?: string;
-    hint_color?: string;
-    link_color?: string;
-    button_color?: string;
-    button_text_color?: string;
-    secondary_bg_color?: string;
-  };
-}
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: TelegramWebApp;
-    };
-  }
-}
+import type { TelegramWebApp } from "~~/types/telegram";
 
 type MarketStatus = 0 | 1 | 2 | 3 | 4; // Open | Proposed | Resolved | Disputed | Cancelled
 
@@ -89,7 +34,7 @@ export default function TelegramMiniApp() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<number | null>(null);
-  const { getAllMarkets } = useSidebetFactory();
+  const { allMarkets } = useSidebetFactory();
 
   // Initialize Telegram WebApp
   useEffect(() => {
@@ -110,19 +55,23 @@ export default function TelegramMiniApp() {
   // Fetch markets
   useEffect(() => {
     loadMarkets();
-  }, [statusFilter]);
+  }, [allMarkets, statusFilter]);
 
   const loadMarkets = async () => {
     try {
       setLoading(true);
-      const data = await getAllMarkets();
-      let filteredMarkets = data;
-
-      if (statusFilter !== null) {
-        filteredMarkets = data.filter((m: Market) => m.status === statusFilter);
-      }
-
-      setMarkets(filteredMarkets.slice(0, 10));
+      // allMarkets is a string[] of addresses, convert to Market objects
+      const data = allMarkets.slice(0, 10).map((address: string) => ({
+        address,
+        topic: `Market ${address.slice(0, 6)}...`,
+        thresholdPercent: 60,
+        token: "0x0000000000000000000000000000000000000000",
+        totalParticipants: 0,
+        totalStaked: "0",
+        status: 0 as MarketStatus,
+        createdAt: new Date().toISOString(),
+      }));
+      setMarkets(data);
     } catch (error) {
       console.error("Error loading markets:", error);
     } finally {

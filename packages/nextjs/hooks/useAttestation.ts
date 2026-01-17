@@ -24,8 +24,15 @@ const TYPES = {
   ],
 } as const;
 
+// Mutable version for wagmi
+const getTypes = () => [
+  { name: "market", type: "address" },
+  { name: "outcome", type: "uint256" },
+  { name: "nonce", type: "uint256" },
+];
+
 export function useAttestation() {
-  const { signTypedData: wagmiSignTypedData } = useWagmiSignTypedData();
+  const wagmiSignTypedDataResult = useWagmiSignTypedData();
   const { signTypedData: privySignTypedData, address: privyAddress, authenticated: privyAuthenticated } = usePrivyAuth();
   const [isSigning, setIsSigning] = useState(false);
 
@@ -40,17 +47,13 @@ export function useAttestation() {
       // Use Privy if authenticated, otherwise use Wagmi
       const usePrivy = privyAuthenticated && !!privyAddress;
 
-      if (!usePrivy && !wagmiSignTypedData) {
-        throw new Error("No signing method available. Please connect a wallet.");
-      }
-
       setIsSigning(true);
 
       try {
         const domain = {
           ...DOMAIN,
           chainId: 31337, // Will use current chain
-          verifyingContract: marketAddress,
+          verifyingContract: marketAddress as `0x${string}`,
         };
 
         const message = {
@@ -62,13 +65,17 @@ export function useAttestation() {
         let signature: string;
 
         if (usePrivy) {
-          // Use Privy signing
-          signature = await privySignTypedData(domain, TYPES, message);
+          // Use Privy signing - convert readonly TYPES to mutable
+          signature = await privySignTypedData(domain, { Attestation: getTypes() }, message);
         } else {
-          // Use Wagmi signing
+          // Use Wagmi signing - wagmiSignTypedDataResult is an object with signTypedData method
+          const wagmiSignTypedData = (wagmiSignTypedDataResult as any).signTypedData;
+          if (!wagmiSignTypedData) {
+            throw new Error("No signing method available. Please connect a wallet.");
+          }
           signature = await wagmiSignTypedData({
             domain,
-            types: TYPES,
+            types: { Attestation: getTypes() },
             primaryType: "Attestation",
             message,
           });
@@ -81,7 +88,7 @@ export function useAttestation() {
         setIsSigning(false);
       }
     },
-    [privySignTypedData, wagmiSignTypedData, privyAddress, privyAuthenticated]
+    [privySignTypedData, wagmiSignTypedDataResult, privyAddress, privyAuthenticated]
   );
 
   /**
@@ -123,6 +130,6 @@ export function useAttestation() {
     getDomain,
     getTypedData,
     isAuthenticated: privyAuthenticated,
-    isConnected: privyAuthenticated || !!wagmiSignTypedData,
+    isConnected: privyAuthenticated || !!wagmiSignTypedDataResult,
   };
 }

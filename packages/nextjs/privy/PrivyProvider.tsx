@@ -44,22 +44,15 @@ export function PrivyProvider({ children }: PrivyProviderProps) {
         appearance: {
           theme: "light",
           accentColor: "#6366f1",
-          showWalletLogin: true,
+          showWalletLoginFirst: true,
           logo: "/logo.png",
         },
 
         // Embedded wallet configuration
         embeddedWallets: {
-          // Create embedded wallet for users without a wallet
-          createOnLogin: "users-without-wallets",
-          // Require email verification for wallet creation
-          requireUserVerification: "email",
-        },
-
-        // Additional configuration
-        fundingSources: {
-          moonpay: { enabled: true },
-          coinbase: { enabled: true },
+          ethereum: {
+            createOnLogin: "users-without-wallets",
+          },
         },
       }}
     >

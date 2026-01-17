@@ -32,9 +32,9 @@ export function AttestationList({
   const progressPercent = Math.min((attestationCount / requiredAttestations) * 100, 100);
 
   const formatAmount = (amount: bigint) => (Number(amount) / 1e18).toFixed(2);
-  const getOutcomeLabel = (outcome: bigint) => (outcome === Outcome.Yes ? "YES" : "NO");
+  const getOutcomeLabel = (outcome: bigint) => (outcome === BigInt(Outcome.Yes) ? "YES" : "NO");
   const getOutcomeClass = (outcome: bigint) =>
-    outcome === Outcome.Yes ? "badge-success badge-outline" : "badge-error badge-outline";
+    outcome === BigInt(Outcome.Yes) ? "badge-success badge-outline" : "badge-error badge-outline";
 
   // Sort: attested first, then by stake amount
   const sortedParticipants = [...participants].sort((a, b) => {
