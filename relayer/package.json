@@ -1,0 +1,39 @@
+{
+  "name": "sidebets-relayer",
+  "version": "1.0.0",
+  "description": "Relayer service for Sidebets - signature collection and auto-finalization",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": ["ethereum", "relayer", "sidebets", "monad"],
+  "author": "",
+  "license": MIT,
+  "dependencies": {
+    "@prisma/client": "^5.7.1",
+    "axios": "^1.6.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.9.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "winston": "^3.11.0",
+    "node-cron": "^3.0.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "@types/node-cron": "^3.0.11",
+    "@types/cors": "^2.8.17",
+    "prisma": "^5.7.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

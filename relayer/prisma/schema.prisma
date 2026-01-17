@@ -1,0 +1,179 @@
+// Prisma Schema for Sidebets Relayer
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model - tracks users who interact with the relayer
+model User {
+  id            String   @id @default(cuid())
+  address       String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  participants  Participant[]
+  proposals     Proposal[]
+  attestations  Attestation[]
+  disputes      Dispute[]
+
+  @@index([address])
+}
+
+// Market model - cached market data from blockchain
+model Market {
+  id              String    @id @default(cuid())
+  address         String    @unique
+  creator         String
+  topic           String
+  thresholdPercent BigInt
+  token           String
+  totalParticipants BigInt
+  totalStaked     BigInt
+  status          Int       // 0=Open, 1=Proposed, 2=Resolved, 3=Disputed, 4=Cancelled
+  createdAt       BigInt
+  proposedAt      BigInt    @default(0)
+  resolvedAt      BigInt    @default(0)
+
+  // Metadata
+  lastSyncedAt    DateTime  @default(now())
+  needsSync       Boolean   @default(false)
+
+  // Relations
+  participants    Participant[]
+  proposals       Proposal[]
+  attestations    Attestation[]
+  disputes        Dispute[]
+
+  @@index([status])
+  @@index([creator])
+  @@index([address])
+}
+
+// Participant model - users who staked in a market
+model Participant {
+  id            String   @id @default(cuid())
+  marketId      String
+  marketAddress String
+  userAddress   String
+  stake         BigInt
+  outcome       Int      // 0=NO, 1=YES
+  hasAttested   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  market        Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userAddress], references: [address])
+
+  @@unique([marketAddress, userAddress])
+  @@index([marketAddress])
+  @@index([userAddress])
+}
+
+// Proposal model - outcome proposals with IPFS evidence
+model Proposal {
+  id              String   @id @default(cuid())
+  marketId        String
+  marketAddress   String
+  proposerAddress String
+  outcome         Int      // 0=NO, 1=YES
+  attestationCount BigInt  @default(0)
+  disputeUntil    BigInt
+  ipfsHash        String
+  isDisputed      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  market          Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  proposer        User     @relation(fields: [proposerAddress], references: [address])
+  attestations    Attestation[]
+  disputes        Dispute[]
+
+  @@index([marketAddress])
+  @@index([proposerAddress])
+}
+
+// Attestation model - EIP-712 signatures collected off-chain
+model Attestation {
+  id              String   @id @default(cuid())
+  marketId        String
+  marketAddress   String
+  proposalId      String?
+  signerAddress   String
+  outcome         Int      // 0=NO, 1=YES
+  signature       String
+  nonce           BigInt
+  isValid         Boolean  @default(true)
+  submittedAt     DateTime @default(now())
+
+  // Relations
+  market          Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  proposal        Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  signer          User     @relation(fields: [signerAddress], references: [address])
+
+  @@unique([marketAddress, signerAddress, nonce])
+  @@index([marketAddress])
+  @@index([signerAddress])
+  @@index([isValid])
+}
+
+// Dispute model - disputes against proposals
+model Dispute {
+  id              String   @id @default(cuid())
+  marketId        String
+  marketAddress   String
+  proposalId      String
+  disputerAddress String
+  reason          String?
+  evidenceIpfsHash String?
+  isActive        Boolean  @default(true)
+  resolvedAt      BigInt   @default(0)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  market          Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  disputer        User     @relation(fields: [disputerAddress], references: [address])
+
+  @@index([marketAddress])
+  @@index([isActive])
+}
+
+// SyncLog model - track blockchain sync operations
+model SyncLog {
+  id              String   @id @default(cuid())
+  operation       String   // sync_market, sync_participants, finalize, etc.
+  marketAddress   String?
+  status          String   // success, error, pending
+  message         String?
+  data            String?  // JSON string
+  createdAt       DateTime @default(now())
+
+  @@index([operation])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// FinalizationQueue model - markets ready for finalization
+model FinalizationQueue {
+  id              String   @id @default(cuid())
+  marketAddress   String   @unique
+  signatureCount  Int
+  totalParticipants Int
+  thresholdMet    Boolean  @default(false)
+  proposalOutcome Int
+  lastCheckedAt   DateTime @default(now())
+  attemptedAt     DateTime?
+  completedAt     DateTime?
+  error           String?
+
+  @@index([thresholdMet])
+  @@index([completedAt])
+}

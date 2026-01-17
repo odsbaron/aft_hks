@@ -27,6 +27,8 @@ type AddressInfoDropdownProps = {
   blockExplorerAddressLink: string | undefined;
   displayName: string;
   ensAvatar?: string;
+  isPrivyUser?: boolean;
+  onLogout?: () => void;
 };
 
 export const AddressInfoDropdown = ({
@@ -34,6 +36,8 @@ export const AddressInfoDropdown = ({
   ensAvatar,
   displayName,
   blockExplorerAddressLink,
+  isPrivyUser = false,
+  onLogout,
 }: AddressInfoDropdownProps) => {
   const { disconnect } = useDisconnect();
   const { connector } = useAccount();
@@ -51,6 +55,17 @@ export const AddressInfoDropdown = ({
 
   useOutsideClick(dropdownRef, closeDropdown);
 
+  const handleDisconnect = async () => {
+    if (isPrivyUser && onLogout) {
+      // Use Privy logout
+      await onLogout();
+    } else {
+      // Use Wagmi disconnect
+      await disconnect();
+    }
+    closeDropdown();
+  };
+
   return (
     <>
       <details ref={dropdownRef} className="dropdown dropdown-end leading-3">
@@ -59,6 +74,9 @@ export const AddressInfoDropdown = ({
           <span className="ml-2 mr-1">
             {isENS(displayName) ? displayName : checkSumAddress?.slice(0, 6) + "..." + checkSumAddress?.slice(-4)}
           </span>
+          {isPrivyUser && (
+            <span className="badge badge-primary badge-xs ml-1">Privy</span>
+          )}
           <ChevronDownIcon className="h-6 w-4 ml-2 sm:ml-0" />
         </summary>
         <ul className="dropdown-content menu z-2 p-2 mt-2 shadow-center shadow-accent bg-base-200 rounded-box gap-1">
@@ -113,7 +131,7 @@ export const AddressInfoDropdown = ({
               </button>
             </li>
           ) : null}
-          {connector?.id === BURNER_WALLET_ID ? (
+          {!isPrivyUser && connector?.id === BURNER_WALLET_ID ? (
             <li>
               <label htmlFor="reveal-burner-pk-modal" className="h-8 btn-sm rounded-xl! flex gap-3 py-3 text-error">
                 <EyeIcon className="h-6 w-4 ml-2 sm:ml-0" />
@@ -125,9 +143,11 @@ export const AddressInfoDropdown = ({
             <button
               className="menu-item text-error h-8 btn-sm rounded-xl! flex gap-3 py-3"
               type="button"
-              onClick={() => disconnect()}
+              onClick={handleDisconnect}
             >
-              <ArrowLeftOnRectangleIcon className="h-6 w-4 ml-2 sm:ml-0" /> <span>Disconnect</span>
+              <ArrowLeftOnRectangleIcon className="h-6 w-4 ml-2 sm:ml-0" /> <span>
+                {isPrivyUser ? "Logout" : "Disconnect"}
+              </span>
             </button>
           </li>
         </ul>

@@ -125,10 +125,12 @@ const config: HardhatUserConfig = {
       url: "https://forno.celo-sepolia.celo-testnet.org/",
       accounts: [deployerPrivateKey],
     },
+    // Monad Testnet - 使用 Ankr RPC 提高稳定性
     monadTestnet: {
-      url: "https://testnet-rpc.monad.xyz",
-      chainId: 41454,
+      url: "https://rpc.ankr.com/monad_testnet/4e212846ddc88c6d7391da49e3ecb53ccbcc7529552aaaba1ec1a93ec5c5e169",
+      chainId: 10143,
       accounts: [deployerPrivateKey],
+      timeout: 60000,
     },
     monad: {
       url: "https://rpc.monad.xyz",

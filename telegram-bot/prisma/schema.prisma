@@ -1,0 +1,91 @@
+// Prisma Schema for Sidebets Telegram Bot
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Telegram User model - tracks users who interact with the bot
+model TelegramUser {
+  id                String    @id @default(cuid())
+  telegramId        BigInt    @unique
+  username          String?
+  firstName         String?
+  lastName          String?
+  walletAddress     String?
+  languageCode      String?
+  lastCommand       String?
+  lastMarketViewed  String?
+  isBlocked         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  subscriptions     Subscription[]
+  notifications     Notification[]
+
+  @@index([telegramId])
+  @@index([walletAddress])
+}
+
+// Market subscription model - users subscribed to market updates
+model Subscription {
+  id              String       @id @default(cuid())
+  userId          String
+  telegramId      BigInt
+  marketAddress   String
+  marketTopic     String
+  isEnabled       Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  user            TelegramUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([telegramId, marketAddress])
+  @@index([telegramId])
+  @@index([marketAddress])
+}
+
+// Notification log - track sent notifications
+model Notification {
+  id              String       @id @default(cuid())
+  userId          String
+  telegramId      BigInt
+  type            String       // proposal_created, threshold_reached, disputed, resolved, etc.
+  marketAddress   String
+  message         String
+  isSuccess       Boolean
+  errorMessage    String?
+  sentAt          DateTime     @default(now())
+
+  // Relations
+  user            TelegramUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([telegramId])
+  @@index([marketAddress])
+  @@index([type])
+}
+
+// Market cache - cache market data for faster display
+model MarketCache {
+  id                String   @id @default(cuid())
+  address           String   @unique
+  topic             String
+  creator           String
+  thresholdPercent  Int
+  totalParticipants Int
+  totalStaked       String
+  status            Int      // 0=Open, 1=Proposed, 2=Resolved, 3=Disputed, 4=Cancelled
+  proposalOutcome   Int?
+  proposalExpiresAt DateTime?
+  resolvedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([address])
+}

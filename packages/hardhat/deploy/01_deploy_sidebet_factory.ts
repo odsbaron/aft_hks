@@ -1,6 +1,5 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { Contract } from "ethers";
 
 /**
  * Deploys the SidebetFactory contract
@@ -11,39 +10,41 @@ const deploySidebetFactory: DeployFunction = async function (hre: HardhatRuntime
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
+  // Check if local network
+  const isLocal = hre.network.name === "hardhat" || hre.network.name === "localhost";
+
   // Deploy SidebetFactory
   const factory = await deploy("SidebetFactory", {
     from: deployer,
     args: [deployer], // initialOwner
     log: true,
-    autoMine: true,
+    autoMine: isLocal, // Only autoMine on local networks
   });
 
   console.log("✅ SidebetFactory deployed to:", factory.address);
 
-  // Optionally deploy a MockToken for testing
-  const isTestnet = hre.network.name === "hardhat" || hre.network.name === "localhost";
+  // Deploy MockToken for testing (on all networks)
+  const mockToken = await deploy("MockToken", {
+    from: deployer,
+    args: ["USD Coin", "USDC", 6], // name, symbol, decimals
+    log: true,
+    autoMine: isLocal,
+  });
 
-  if (isTestnet) {
-    const mockToken = await deploy("MockToken", {
-      from: deployer,
-      args: ["USD Coin", "USDC", 6], // name, symbol, decimals
-      log: true,
-      autoMine: true,
-    });
+  console.log("✅ MockToken deployed to:", mockToken.address);
 
-    console.log("✅ MockToken deployed to:", mockToken.address);
-
-    // Mint some tokens to deployer
+  // Mint some tokens to deployer (skip on real networks where mint happens after deployment)
+  if (isLocal) {
     const tokenContract = await hre.ethers.getContractAt("MockToken", mockToken.address);
     const mintAmount = hre.ethers.parseUnits("1000000", 6); // 1M USDC
     await tokenContract.mint(deployer, mintAmount);
     console.log("✅ Minted 1M USDC to deployer");
+  } else {
+    console.log("💡 On testnet/mainnet, mint tokens manually after deployment");
   }
 
-  // Get the deployed contract
-  const factoryContract = await hre.ethers.getContract<Contract>("SidebetFactory", deployer);
-  console.log("📦 Factory owner:", await factoryContract.owner());
+  console.log("📦 Factory deployer:", deployer);
+  console.log("🔗 Explorer: https://explorer.testnet.monad.xyz/address/" + factory.address);
 };
 
 export default deploySidebetFactory;
